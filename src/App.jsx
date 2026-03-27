@@ -4,7 +4,9 @@ const globalStyles = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
   :root { --bg: #08080a; --panel: #111216; --panel-light: #18191e; --border: #23242b; --border-light: #383a45; --fg: #f0f0f2; --muted: #787a85; --accent: #ffffff; }
-  body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; }
+  [data-theme="light"] { --bg: #f4f4f6; --panel: #ffffff; --panel-light: #f0f0f2; --border: #d8d8dd; --border-light: #b8b8c0; --fg: #111216; --muted: #6a6a75; --accent: #111216; }
+  body { background: var(--bg); color: var(--fg); font-family: 'Inter', sans-serif; -webkit-font-smoothing: antialiased; transition: background 0.4s, color 0.4s; }
+  header, section, nav, div { transition: background-color 0.4s, border-color 0.4s; }
   .custom-scrollbar::-webkit-scrollbar { width: 4px; }
   .custom-scrollbar::-webkit-scrollbar-track { background: var(--bg); }
   .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border-light); }
@@ -24,263 +26,316 @@ const globalStyles = `
   @keyframes electric-arc { 0%, 100% { opacity: 0; } 10%, 90% { opacity: 0; } 50% { opacity: 1; stroke-dashoffset: 0; } }
   @keyframes particle-drift { 0% { transform: translate(0,0) scale(1); opacity: 0; } 50% { opacity: 1; } 100% { transform: translate(var(--dx), var(--dy)) scale(0); opacity: 0; } }
   @keyframes moveParticle { 0% { offset-distance: 0%; opacity: 0; transform: scale(0.5); } 5% { opacity: 1; transform: scale(1); } 95% { opacity: 1; transform: scale(1); } 100% { offset-distance: 100%; opacity: 0; transform: scale(0.5); } }
-  @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 4px rgba(255,255,255,0.1); } 50% { box-shadow: 0 0 20px rgba(255,255,255,0.3); } }
   @keyframes glitch { 0% { transform: translateX(0); opacity: 1; } 20% { transform: translateX(-3px); opacity: 0.8; } 40% { transform: translateX(3px); opacity: 0.9; } 60% { transform: translateX(-1px); opacity: 0.85; } 80% { transform: translateX(1px); opacity: 0.95; } 100% { transform: translateX(0); opacity: 1; } }
-  @keyframes nodeBreathe { 0%, 100% { r: 16; } 50% { r: 17.2; } }
   @keyframes tickerScroll { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+  @keyframes navRipple { 0% { transform: translate(-50%,-50%) scale(0); opacity: 1; } 100% { transform: translate(-50%,-50%) scale(3); opacity: 0; } }
+  @keyframes waveShimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  @keyframes waveSweepOnce { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 `;
 
-// HOOKS & SHARED
 const M = ({ children, style = {} }) => <span style={{ fontFamily: "'JetBrains Mono', monospace", ...style }}>{children}</span>;
-const DotP = ({ opacity = 0.08 }) => <div style={{ position: 'absolute', inset: 0, backgroundSize: '24px 24px', backgroundImage: 'radial-gradient(#383a45 1px, transparent 1px)', opacity, pointerEvents: 'none' }} />;
-const GridP = ({ opacity = 0.06 }) => <div style={{ position: 'absolute', inset: -20, backgroundSize: '40px 40px', backgroundImage: 'linear-gradient(to right, #23242b 1px, transparent 1px), linear-gradient(to bottom, #23242b 1px, transparent 1px)', opacity, pointerEvents: 'none' }} />;
+const DotP = ({ opacity = 0.08 }) => <div style={{ position: 'absolute', inset: 0, backgroundSize: '24px 24px', backgroundImage: 'radial-gradient(var(--border-light) 1px, transparent 1px)', opacity, pointerEvents: 'none' }} />;
+const GridP = ({ opacity = 0.06 }) => <div style={{ position: 'absolute', inset: -20, backgroundSize: '40px 40px', backgroundImage: 'linear-gradient(to right, var(--border) 1px, transparent 1px), linear-gradient(to bottom, var(--border) 1px, transparent 1px)', opacity, pointerEvents: 'none' }} />;
 const ScanL = () => <div style={{ position: 'absolute', width: '100%', height: 2, background: 'linear-gradient(to right, transparent, rgba(255,255,255,0.15), transparent)', top: 0, left: 0, animation: 'scan 8s linear infinite', zIndex: 10, pointerEvents: 'none' }} />;
 const MetB = ({ label, value, unit }) => <div><M style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>{label}</M><M style={{ fontSize: 12, color: 'var(--fg)' }}>{value}{unit && <span style={{ color: 'var(--muted)' }}>{unit}</span>}</M></div>;
-const MouseCtx = createContext({ mx: 0, my: 0 });
 const MobileCtx = createContext(false);
-
+const ThemeCtx = createContext('dark');
 const useIsMobile = () => { const [m, setM] = useState(false); useEffect(() => { const c = () => setM(window.innerWidth < 768); c(); window.addEventListener('resize', c); return () => window.removeEventListener('resize', c); }, []); return m; };
-
-const STitle = ({ children }) => { const mob = useContext(MobileCtx); return <h2 style={{ fontSize: mob ? '1.5rem' : '2.25rem', fontWeight: 300, letterSpacing: '-0.02em', color: 'var(--fg)', lineHeight: 1.2, fontFamily: "'Inter', sans-serif" }}>{children}</h2>; };
-
-const FBar = ({ metrics, copyright }) => { const mob = useContext(MobileCtx); return <div style={{ padding: mob ? '12px 16px' : '16px 24px', borderTop: '1px solid var(--border)', background: 'var(--panel-light)', display: 'flex', flexDirection: mob ? 'column' : 'row', justifyContent: 'space-between', alignItems: mob ? 'flex-start' : 'center', gap: mob ? 12 : 0, flexShrink: 0 }}><div style={{ display: 'flex', gap: mob ? 24 : 48, flexWrap: 'wrap' }}>{metrics.map(m2 => <MetB key={m2.label} {...m2} />)}</div><M style={{ fontSize: 10, color: 'var(--border-light)' }}>{copyright}</M></div>; };
 
 const UTCClock = () => { const [t, setT] = useState(''); useEffect(() => { const tick = () => setT(new Date().toISOString().replace('T', ' ').substring(0, 19) + ' UTC'); tick(); const iv = setInterval(tick, 1000); return () => clearInterval(iv); }, []); return <M style={{ fontSize: 10, color: 'var(--border-light)', textTransform: 'uppercase', letterSpacing: '0.05em', fontVariantNumeric: 'tabular-nums' }}>{t}</M>; };
 
-// BOOT
-const bootLines = [{ text: 'FLUX SYSTEMS v4.0', delay: 0 }, { text: 'Initializing core modules...', delay: 400 }, { text: 'Loading signal extraction pipeline', delay: 800 }, { text: 'Connecting 124 data streams', delay: 1200 }, { text: 'Deploying agent swarm', delay: 1600 }, { text: 'Risk defense protocol active', delay: 2000 }, { text: '', delay: 2300 }, { text: 'ALL SYSTEMS NOMINAL', delay: 2400, accent: true }];
-const BootScreen = ({ onComplete }) => {
-  const [lines, setLines] = useState([]); const [progress, setProgress] = useState(0); const [fading, setFading] = useState(false); const mob = useContext(MobileCtx);
-  useEffect(() => { bootLines.forEach((l) => setTimeout(() => setLines(p => [...p, l]), l.delay)); const piv = setInterval(() => setProgress(p => Math.min(p + 2, 100)), 50); const done = setTimeout(() => { setFading(true); setTimeout(onComplete, 500); }, 3200); return () => { clearInterval(piv); clearTimeout(done); }; }, [onComplete]);
-  return (<div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: fading ? 0 : 1, transition: 'opacity 0.5s ease', padding: 24 }}><div style={{ width: '100%', maxWidth: 400, fontFamily: "'JetBrains Mono', monospace" }}>{lines.map((l, i) => <div key={i} style={{ fontSize: mob ? 10 : 11, color: l.accent ? 'var(--accent)' : l.text === '' ? 'transparent' : 'var(--muted)', marginBottom: 6, letterSpacing: '0.05em', wordBreak: 'break-word' }}>{l.text === '' ? '.' : (l.accent ? '> ' : '  ') + l.text}</div>)}<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24 }}><div style={{ flex: 1, height: 1, background: 'var(--border)' }}><div style={{ height: '100%', background: progress < 100 ? 'var(--muted)' : 'var(--accent)', width: `${progress}%`, transition: 'width 0.1s, background 0.3s' }} /></div><M style={{ fontSize: 10, color: 'var(--muted)', width: 36, textAlign: 'right' }}>{progress}%</M></div></div></div>);
+const STitle = ({ children }) => {
+  const mob = useContext(MobileCtx); const ref = useRef(null);
+  const [swept, setSwept] = useState(false); const [done, setDone] = useState(false);
+  useEffect(() => { const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setSwept(true); obs.disconnect(); setTimeout(() => setDone(true), 1300); } }, { threshold: 0.5 }); if (ref.current) obs.observe(ref.current); return () => obs.disconnect(); }, []);
+  const sweeping = swept && !done;
+  return <h2 ref={ref} style={{ fontSize: mob ? '1.5rem' : '2.25rem', fontWeight: 300, letterSpacing: '-0.02em', lineHeight: 1.2, fontFamily: "'Inter', sans-serif", ...(sweeping ? { background: 'linear-gradient(90deg, var(--fg) 0%, var(--fg) 35%, rgba(130,170,255,0.7) 45%, rgba(110,155,255,0.85) 50%, rgba(130,170,255,0.7) 55%, var(--fg) 65%, var(--fg) 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'waveSweepOnce 1.2s ease-in-out forwards' } : { color: 'var(--fg)' }) }}>{children}</h2>;
 };
 
-// TICKER (hidden on mobile)
+// BOOT
+const bootLines = [{ text: 'SATAIKKO v1.0', delay: 0 }, { text: 'Initializing research platform...', delay: 400 }, { text: 'Connecting market data feeds', delay: 800 }, { text: 'Calibrating signal models', delay: 1200 }, { text: 'All systems operational', delay: 1600 }, { text: '', delay: 1900 }, { text: 'READY', delay: 2000, accent: true }];
+const BootScreen = ({ onComplete }) => {
+  const mob = useContext(MobileCtx); const [lines, setLines] = useState([]); const [progress, setProgress] = useState(0); const [fading, setFading] = useState(false);
+  useEffect(() => { bootLines.forEach((l) => setTimeout(() => setLines(p => [...p, l]), l.delay)); const piv = setInterval(() => setProgress(p => Math.min(p + 2.5, 100)), 50); const done = setTimeout(() => { setFading(true); setTimeout(onComplete, 500); }, 2800); return () => { clearInterval(piv); clearTimeout(done); }; }, [onComplete]);
+  return (<div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'var(--bg)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', opacity: fading ? 0 : 1, transition: 'opacity 0.5s ease', padding: 24 }}><div style={{ width: '100%', maxWidth: 400, fontFamily: "'JetBrains Mono', monospace" }}>{lines.map((l, i) => <div key={i} style={{ fontSize: mob ? 10 : 11, color: l.accent ? 'var(--accent)' : l.text === '' ? 'transparent' : 'var(--muted)', marginBottom: 6, letterSpacing: '0.05em' }}>{l.text === '' ? '.' : (l.accent ? '> ' : '  ') + l.text}</div>)}<div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 24 }}><div style={{ flex: 1, height: 1, background: 'var(--border)' }}><div style={{ height: '100%', background: progress < 100 ? 'var(--muted)' : 'var(--accent)', width: `${progress}%`, transition: 'width 0.1s, background 0.3s' }} /></div><M style={{ fontSize: 10, color: 'var(--muted)', width: 36, textAlign: 'right' }}>{progress}%</M></div></div></div>);
+};
+
+// TICKER
 const SidebarTicker = () => {
   const mob = useContext(MobileCtx);
-  const [data] = useState(() => { const types = ['SYS','NET','AGT','RSK','SIG','EVO','STR']; const rows = []; for (let i = 0; i < 60; i++) { rows.push(`${types[Math.floor(Math.random()*types.length)]} 0x${Math.floor(Math.random()*0xFFFFFF).toString(16).padStart(6,'0').toUpperCase()} ${Math.random()>0.15?'OK':'WN'}`); } return rows; });
+  const [data] = useState(() => { const types = ['SYS','MKT','SIG','RSK','MDL','DAT']; const rows = []; for (let i = 0; i < 60; i++) { rows.push(`${types[Math.floor(Math.random()*types.length)]} 0x${Math.floor(Math.random()*0xFFFFFF).toString(16).padStart(6,'0').toUpperCase()} ${Math.random()>0.15?'OK':'WN'}`); } return rows; });
   if (mob) return null;
   return (<div style={{ position: 'fixed', right: 0, top: 56, bottom: 0, width: 22, zIndex: 40, overflow: 'hidden', borderLeft: '1px solid var(--border)', background: 'var(--bg)', opacity: 0.4 }}><div style={{ animation: 'tickerScroll 60s linear infinite', writingMode: 'vertical-rl', whiteSpace: 'nowrap', fontFamily: "'JetBrains Mono', monospace", fontSize: 7, color: 'var(--border-light)', letterSpacing: '0.05em', paddingTop: 8 }}>{[...data,...data].map((r,i) => <div key={i} style={{ marginBottom: 12, color: r.endsWith('WN') ? 'rgba(160,50,50,0.4)' : 'var(--border-light)' }}>{r}</div>)}</div></div>);
 };
 
-// COUNT UP
-const CountUp = ({ end, suffix = '', duration = 1500 }) => {
-  const [val, setVal] = useState('0'); const ref = useRef(null); const started = useRef(false);
-  useEffect(() => { const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting && !started.current) { started.current = true; const isF = String(end).includes('.'); const n = parseFloat(String(end).replace(/,/g,'')); const s = performance.now(); const tick = (now) => { const p = Math.min((now-s)/duration,1); const ea = 1-Math.pow(1-p,3); const c = n*ea; setVal(isF ? c.toFixed(1) : Math.round(c).toLocaleString()); if (p<1) requestAnimationFrame(tick); }; requestAnimationFrame(tick); } }, { threshold: 0.5 }); if (ref.current) obs.observe(ref.current); return () => obs.disconnect(); }, [end, duration]);
-  return <span ref={ref}>{val}{suffix}</span>;
-};
-
 // SCRAMBLE TEXT
 const GL = '\u2310\u2591\u2592\u2593\u256C\u256B\u256A\u253C\u2524\u251C\u2500\u2502\u2588\u2580\u2584\u00B1\u00D7\u00F7\u2261\u221E\u2234\u2235\u03B1\u03B2\u03B3\u03B4\u03A3\u03A9\u03BC';
-const ScrambleText = ({ text, active, delay = 0 }) => {
-  const [display, setDisplay] = useState(''); const started = useRef(false);
-  useEffect(() => { if (!active || started.current) return; started.current = true; const chars = text.split(''); let tick = 0;
-    const timer = setTimeout(() => { const iv = setInterval(() => { setDisplay(chars.map((ch, i) => { if (ch === ' ') return ' '; if (tick > i * 1.5 + 4) return ch; return GL[Math.floor(Math.random() * GL.length)]; }).join('')); tick++; if (tick > chars.length * 1.5 + 8) { clearInterval(iv); setDisplay(text); } }, 35); }, delay * 1000);
-    return () => clearTimeout(timer); }, [active, text, delay]);
-  if (!active) return null; return <>{display || text.replace(/./g, ' ')}</>;
+
+// NAV BUTTON
+const NavButton = ({ n, label, id, isActive, onClick }) => {
+  const [hov, setHov] = useState(false); const [numDisplay, setNumDisplay] = useState(n); const [scanX, setScanX] = useState(-100); const [ripple, setRipple] = useState(false); const scrambleRef = useRef(null);
+  useEffect(() => { if (hov) { let tick = 0; scrambleRef.current = setInterval(() => { tick++; if (tick > 6) { clearInterval(scrambleRef.current); setNumDisplay(n); return; } setNumDisplay(String(Math.floor(Math.random()*10))+String(Math.floor(Math.random()*10))); }, 50); setScanX(0); setTimeout(() => setScanX(110), 10); } else { if (scrambleRef.current) clearInterval(scrambleRef.current); setNumDisplay(n); setScanX(-100); } return () => { if (scrambleRef.current) clearInterval(scrambleRef.current); }; }, [hov, n]);
+  const handleClick = () => { setRipple(true); setTimeout(() => setRipple(false), 400); onClick(); };
+  return (<button onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)} onClick={handleClick} style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: isActive ? 'var(--fg)' : hov ? 'var(--fg)' : 'var(--muted)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', position: 'relative', transition: 'color 0.2s', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap', overflow: 'hidden' }}>
+    <div style={{ position: 'absolute', top: 0, left: `${scanX}%`, width: '30%', height: '100%', background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent)', transition: hov ? 'left 0.4s ease-out' : 'none', pointerEvents: 'none' }} />
+    {ripple && <div style={{ position: 'absolute', top: '50%', left: '50%', width: 60, height: 60, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', transform: 'translate(-50%,-50%) scale(0)', animation: 'navRipple 0.4s ease-out forwards', pointerEvents: 'none' }} />}
+    {isActive && <div style={{ width: 3, height: 3, borderRadius: '50%', background: 'rgba(130,170,255,0.8)', boxShadow: '0 0 6px rgba(130,170,255,0.5)', animation: 'blink 2s infinite', flexShrink: 0 }} />}
+    <M style={{ fontSize: 9, color: isActive ? 'var(--muted)' : hov ? 'rgba(130,170,255,0.7)' : 'var(--border-light)', transition: 'color 0.2s', fontVariantNumeric: 'tabular-nums', minWidth: 16 }}>{numDisplay}</M>
+    <span style={{ position: 'relative' }}>{label}<span style={{ position: 'absolute', left: -6, top: '50%', transform: 'translateY(-50%)', opacity: hov ? 0.5 : 0, transition: 'opacity 0.2s', color: 'var(--border-light)', fontSize: 9 }}>[</span><span style={{ position: 'absolute', right: -6, top: '50%', transform: 'translateY(-50%)', opacity: hov ? 0.5 : 0, transition: 'opacity 0.2s', color: 'var(--border-light)', fontSize: 9 }}>]</span></span>
+    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: 1, background: isActive ? 'var(--accent)' : hov ? 'rgba(130,170,255,0.6)' : 'transparent', transform: (isActive||hov) ? 'scaleX(1)' : 'scaleX(0)', transition: 'transform 0.3s cubic-bezier(0.16,1,0.3,1), background 0.3s', transformOrigin: 'left', boxShadow: hov && !isActive ? '0 0 8px rgba(130,170,255,0.3)' : 'none' }} />
+    <div style={{ position: 'absolute', bottom: -1, left: 0, width: '100%', height: 1, background: 'rgba(130,170,255,0.15)', transform: hov ? 'scaleX(1)' : 'scaleX(0)', transition: hov ? 'transform 0.5s cubic-bezier(0.16,1,0.3,1) 0.1s' : 'transform 0.2s', transformOrigin: 'left' }} />
+  </button>);
 };
 
-// HEADER — hamburger on mobile
-const TARGET = 'FLUX';
-const Header = ({ active }) => {
-  const mob = useContext(MobileCtx);
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [chars, setChars] = useState(TARGET.split('')); const [phase, setPhase] = useState('idle');
-  useEffect(() => { let to, iv; const run = () => { setPhase('scramble'); let t = 0; iv = setInterval(() => { setChars(TARGET.split('').map((ch, i) => t > 6+i*3 ? ch : GL[Math.floor(Math.random()*GL.length)])); t++; if (t>20) { clearInterval(iv); setChars(TARGET.split('')); setPhase('idle'); to = setTimeout(run, 6000+Math.random()*4000); } }, 60); }; to = setTimeout(run, 3000); return () => { clearTimeout(to); clearInterval(iv); }; }, []);
-  const nav = [{ n:'01',l:'Intelligence',id:'hero' },{ n:'02',l:'Firm',id:'firm' },{ n:'03',l:'Signal',id:'signal' },{ n:'04',l:'Strategies',id:'strategies' },{ n:'05',l:'Risk',id:'risk' },{ n:'06',l:'Evolution',id:'evolution' },{ n:'07',l:'Manifesto',id:'frontier' }];
+// THEME TOGGLE
+const ThemeToggle = () => {
+  const theme = useContext(ThemeCtx);
+  const isDark = theme.mode === 'dark';
+  return (
+    <button onClick={theme.toggle} style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 20, width: 36, height: 20, position: 'relative', cursor: 'pointer', flexShrink: 0, transition: 'border-color 0.3s' }} title={isDark ? 'Switch to light' : 'Switch to dark'}>
+      <div style={{ width: 14, height: 14, borderRadius: '50%', background: 'var(--accent)', position: 'absolute', top: 2, left: isDark ? 2 : 18, transition: 'left 0.3s cubic-bezier(0.16,1,0.3,1)', boxShadow: isDark ? '0 0 6px rgba(130,170,255,0.4)' : 'none' }} />
+    </button>
+  );
+};
 
+// HEADER
+const TARGET = 'SATAIKKO';
+const Header = ({ active }) => {
+  const mob = useContext(MobileCtx); const [menuOpen, setMenuOpen] = useState(false);
+  const [chars, setChars] = useState(TARGET.split('')); const [phase, setPhase] = useState('idle');
+  useEffect(() => { let to, iv; const run = () => { setPhase('scramble'); let t = 0; iv = setInterval(() => { setChars(TARGET.split('').map((ch, i) => t > 6+i*2 ? ch : GL[Math.floor(Math.random()*GL.length)])); t++; if (t > 24) { clearInterval(iv); setChars(TARGET.split('')); setPhase('idle'); to = setTimeout(run, 6000+Math.random()*4000); } }, 50); }; to = setTimeout(run, 3000); return () => { clearTimeout(to); clearInterval(iv); }; }, []);
+  const nav = [{ n:'01',l:'Intelligence',id:'hero' },{ n:'02',l:'Technology',id:'tech' },{ n:'03',l:'Contact',id:'contact' }];
   return (<>
     <header style={{ height: 56, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: 'var(--panel)', flexShrink: 0, zIndex: 50 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: mob ? 12 : 28, height: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: 12, height: 12, transform: 'rotate(45deg)' }}>{[0,1,2,3].map(i => <div key={i} style={{ background: 'var(--accent)', width: 5, height: 5, transform: i===1?'translateY(6px)':i===2?'translateY(-6px)':'none' }} />)}</div>
-          <div style={{ display: 'flex', position: 'relative' }}>{chars.map((ch,i) => <span key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 500, letterSpacing: '0.18em', color: phase==='scramble'&&ch!==TARGET[i]?'var(--muted)':'var(--fg)', transition: 'color 0.15s', display: 'inline-block', width: '1.1em', textAlign: 'center' }}>{ch}</span>)}<div style={{ position: 'absolute', bottom: -3, left: 0, right: 0, height: 1, background: phase==='scramble'?'linear-gradient(90deg, transparent, var(--accent), transparent)':'var(--border-light)', transition: 'background 0.3s', opacity: phase==='scramble'?0.8:0.3 }} /></div>
+          <div style={{ display: 'flex', position: 'relative' }}>{chars.map((ch,i) => <span key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 500, letterSpacing: '0.14em', color: phase==='scramble'&&ch!==TARGET[i]?'var(--muted)':'var(--fg)', transition: 'color 0.15s', display: 'inline-block', width: '0.95em', textAlign: 'center' }}>{ch}</span>)}<div style={{ position: 'absolute', bottom: -3, left: 0, right: 0, height: 1, background: phase==='scramble'?'linear-gradient(90deg, transparent, var(--accent), transparent)':'var(--border-light)', transition: 'background 0.3s', opacity: phase==='scramble'?0.8:0.3 }} /></div>
         </div>
-        {!mob && <nav style={{ display: 'flex', alignItems: 'center', gap: 24, height: '100%' }}>{nav.map(item => <button key={item.id} onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })} style={{ height: '100%', display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', color: active===item.id?'var(--fg)':'var(--muted)', fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', position: 'relative', transition: 'color 0.3s', fontFamily: "'Inter', sans-serif", whiteSpace: 'nowrap' }}><M style={{ fontSize: 9, color: active===item.id?'var(--muted)':'var(--border-light)' }}>{item.n}</M>{item.l}<div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%', height: 1, background: 'var(--accent)', transform: active===item.id?'scaleX(1)':'scaleX(0)', transition: 'transform 0.3s', transformOrigin: 'left' }} /></button>)}</nav>}
+        {!mob && <nav style={{ display: 'flex', alignItems: 'center', gap: 28, height: '100%' }}>{nav.map(item => <NavButton key={item.id} n={item.n} label={item.l} id={item.id} isActive={active===item.id} onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' })} />)}</nav>}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        {!mob && <><div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'blink 2s infinite' }} /><M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--fg)', textTransform: 'uppercase' }}>Flux Systems</M></>}
+        {!mob && <><div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', animation: 'blink 2s infinite' }} /><M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--fg)', textTransform: 'uppercase' }}>Systems Active</M></>}
+        {/* Theme toggle */}
+        <ThemeToggle />
         {mob && <button onClick={() => setMenuOpen(!menuOpen)} style={{ background: 'none', border: 'none', padding: 8, cursor: 'pointer' }}><div style={{ width: 18, height: 2, background: 'var(--fg)', marginBottom: 4 }} /><div style={{ width: 18, height: 2, background: 'var(--fg)', marginBottom: 4 }} /><div style={{ width: 12, height: 2, background: 'var(--fg)' }} /></button>}
       </div>
     </header>
-    {mob && menuOpen && <div style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 0, background: 'rgba(8,8,10,0.95)', zIndex: 49, padding: '32px 24px', backdropFilter: 'blur(8px)' }}>{nav.map(item => <button key={item.id} onClick={() => { document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' }); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', color: active===item.id?'var(--fg)':'var(--muted)', fontSize: 14, padding: '14px 0', width: '100%', borderBottom: '1px solid var(--border)', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}><M style={{ fontSize: 10, color: 'var(--border-light)' }}>{item.n}</M>{item.l}</button>)}</div>}
+    {mob && menuOpen && <div style={{ position: 'fixed', top: 56, left: 0, right: 0, bottom: 0, background: 'var(--bg)', zIndex: 49, padding: '32px 24px', backdropFilter: 'blur(8px)', opacity: 0.98 }}>{nav.map(item => <button key={item.id} onClick={() => { document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth' }); setMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'none', border: 'none', color: active===item.id?'var(--fg)':'var(--muted)', fontSize: 14, padding: '14px 0', width: '100%', borderBottom: '1px solid var(--border)', cursor: 'pointer', fontFamily: "'Inter', sans-serif" }}><M style={{ fontSize: 10, color: 'var(--border-light)' }}>{item.n}</M>{item.l}</button>)}</div>}
   </>);
 };
 
 // 01 HERO
 const HeroSection = () => {
-  const mob = useContext(MobileCtx);
-  const cornersRef = useRef(null); const rainRef = useRef(null); const [vol, setVol] = useState(0.5);
-  useEffect(() => { let t = 0; const iv = setInterval(() => { t += 0.02; setVol(0.5 + Math.sin(t*0.3)*0.3 + Math.sin(t*0.7)*0.15 + Math.sin(t*1.3)*0.05); }, 50); return () => clearInterval(iv); }, []);
+  const mob = useContext(MobileCtx); const cornersRef = useRef(null); const [vol, setVol] = useState(0.5);
+  useEffect(() => { let t = 0; const iv = setInterval(() => { t += 0.02; setVol(0.5 + Math.sin(t*0.3)*0.3 + Math.sin(t*0.7)*0.15); }, 50); return () => clearInterval(iv); }, []);
   useEffect(() => { if (mob) return; const h = (e) => { if (!cornersRef.current) return; cornersRef.current.style.transform = `translate(${(e.clientX/window.innerWidth-0.5)*15}px, ${(e.clientY/window.innerHeight-0.5)*15}px)`; }; window.addEventListener('mousemove', h); return () => window.removeEventListener('mousemove', h); }, [mob]);
-  const stats=[{n:'01',l:'Live Data Streams',v:'124',u:''},{n:'02',l:'Agent Decisions Daily',v:'4.2',u:'M'},{n:'03',l:'Inference Latency',v:'0.0001',u:'s'}];
-  const pulseSpeed=4/(0.5+vol);
-
+  const pulseSpeed = 4/(0.5+vol);
   return (
     <section id="hero" style={{ minHeight: '100vh', display: 'flex', flexDirection: mob ? 'column' : 'row', position: 'relative' }}>
-      <div style={{ width: mob ? '100%' : '35%', minWidth: mob ? 'auto' : 400, borderRight: mob ? 'none' : '1px solid var(--border)', borderBottom: mob ? '1px solid var(--border)' : 'none', background: 'var(--panel)', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 20 }}>
+      <div style={{ width: mob ? '100%' : '40%', minWidth: mob ? 'auto' : 420, borderRight: mob ? 'none' : '1px solid var(--border)', borderBottom: mob ? '1px solid var(--border)' : 'none', background: 'var(--panel)', display: 'flex', flexDirection: 'column', position: 'relative', zIndex: 20 }}>
         <GridP opacity={0.1} />
-        <div style={{ padding: mob ? '32px 24px' : 48, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
-          <div style={{ marginBottom: mob ? 24 : 48 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}><span style={{ width: 16, height: 1, background: 'var(--border-light)' }} /><M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--muted)', textTransform: 'uppercase' }}>Thesis 001</M></div>
-            <h1 style={{ fontSize: mob ? '2rem' : '3.5rem', fontWeight: 300, lineHeight: 1.1, letterSpacing: '-0.02em', color: 'var(--fg)', fontFamily: "'Inter', sans-serif" }}>Machines that<br/>learn to see<br/><span style={{ color: 'var(--muted)' }}>what markets<br/>choose<br/>to hide.</span></h1>
+        <div style={{ padding: mob ? '40px 24px' : '64px 56px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
+          <div style={{ marginBottom: mob ? 28 : 56 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}><span style={{ width: 20, height: 1, background: 'var(--border-light)' }} /><M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--muted)', textTransform: 'uppercase' }}>Systematic Investment Management</M></div>
+            <h1 style={{ fontSize: mob ? '2.2rem' : '3.8rem', fontWeight: 300, lineHeight: 1.08, letterSpacing: '-0.02em', fontFamily: "'Inter', sans-serif", background: 'linear-gradient(90deg, var(--fg) 0%, var(--fg) 35%, rgba(130,170,255,0.9) 45%, rgba(100,150,255,1) 50%, rgba(130,170,255,0.9) 55%, var(--fg) 65%, var(--fg) 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text', animation: 'waveShimmer 8s ease-in-out infinite' }}>A scientific<br/>approach to<br/>finding value<br/><span style={{ WebkitTextFillColor: 'transparent', background: 'linear-gradient(90deg, var(--muted) 0%, var(--muted) 35%, rgba(100,130,200,0.8) 45%, rgba(90,120,190,0.9) 50%, rgba(100,130,200,0.8) 55%, var(--muted) 65%, var(--muted) 100%)', backgroundSize: '200% 100%', WebkitBackgroundClip: 'text', backgroundClip: 'text', animation: 'waveShimmer 8s ease-in-out infinite', animationDelay: '1.5s' }}>in global markets.</span></h1>
           </div>
-          <p style={{ color: 'var(--muted)', fontSize: mob ? 13 : 14, maxWidth: 280, lineHeight: 1.7, borderLeft: '1px solid var(--border-light)', paddingLeft: 16 }}>Autonomous AI agents. Proprietary data pipelines. Decentralized intelligence harvested at the edge of consensus.</p>
+          <p style={{ color: 'var(--muted)', fontSize: mob ? 13 : 15, maxWidth: 340, lineHeight: 1.7, borderLeft: '1px solid var(--border-light)', paddingLeft: 16 }}>We apply quantitative techniques, rigorous research, and advanced technology to systematically identify value opportunities across diversified global strategies.</p>
         </div>
-        <div style={{ padding: '12px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--panel-light)' }}><M style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>FLUX INTELLIGENCE</M><UTCClock /></div>
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--panel-light)' }}><M style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>SATAIKKO</M><UTCClock /></div>
       </div>
       <div style={{ flex: 1, background: 'var(--bg)', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: mob ? 400 : 600 }}>
-        <ScanL /><DotP opacity={0.2} />
+        <ScanL /><DotP opacity={0.15} />
         <div style={{ flex: 1, position: 'relative' }}>
-          {!mob && <><div style={{ position: 'absolute', height: 1, background: 'var(--border-light)', width: '100%', top: '50%', left: 0 }} /><div style={{ position: 'absolute', width: 1, background: 'var(--border-light)', height: '100%', left: '50%', top: 0 }} /></>}
+          {!mob && <><div style={{ position: 'absolute', height: 1, background: 'var(--border-light)', width: '100%', top: '50%' }} /><div style={{ position: 'absolute', width: 1, background: 'var(--border-light)', height: '100%', left: '50%' }} /></>}
           <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', width: mob ? 280 : 400, height: mob ? 220 : 300, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
             <div ref={cornersRef} className="corners" style={{ width: '100%', height: '100%', background: 'rgba(17,18,22,0.4)', backdropFilter: 'blur(4px)', padding: mob ? 16 : 24, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div className="corners-inner" />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--accent)', textTransform: 'uppercase' }}>Core_Agent</M><M style={{ fontSize: 10, color: 'var(--muted)' }}>Ω-01</M></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}><M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--accent)', textTransform: 'uppercase' }}>Research_Platform</M><M style={{ fontSize: 10, color: 'var(--muted)' }}>RP-01</M></div>
               <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
                 <div style={{ position: 'absolute', width: mob ? 120 : 192, height: mob ? 120 : 192, border: '1px solid rgba(130,170,255,0.5)', borderRadius: '50%', animation: `radial-pulse ${pulseSpeed}s cubic-bezier(0.165,0.84,0.44,1) infinite`, opacity: 0 }} />
                 <svg style={{ position: 'absolute', width: mob ? 160 : 256, height: mob ? 160 : 256, pointerEvents: 'none', zIndex: 20 }} viewBox="0 0 100 100">{[{d:'M 50 50 L 70 30',dl:0.5},{d:'M 50 50 L 30 70',dl:1.2},{d:'M 50 50 L 65 65',dl:2.1}].map((a,i)=><path key={i} d={a.d} stroke="rgba(140,180,255,0.9)" strokeWidth="0.5" fill="none" style={{ strokeDasharray:50, strokeDashoffset:50, animation:`electric-arc ${2/(0.5+vol)}s linear infinite`, animationDelay:`${a.dl}s` }} />)}</svg>
                 {[{w:mob?80:128,o:0.5,t:10},{w:mob?120:192,o:0.3,t:15},{w:mob?160:256,o:0.2,t:20}].map((r,i)=><div key={i} style={{ width:r.w, height:r.w, borderRadius:'50%', border:`1px solid ${i===2?'rgba(35,36,43,0.5)':'var(--border-light)'}`, position:'absolute', opacity:r.o, animation:`blink ${r.t/(0.5+vol)}s linear infinite`, animationDirection:i===1?'reverse':'normal' }}><div style={{ position:'absolute', top:-4, left:'50%', width:4, height:4, background:'var(--accent)', borderRadius:'50%', boxShadow:'0 0 8px rgba(130,170,255,0.6)' }} /></div>)}
                 <div style={{ width: 8, height: 8, background: 'var(--accent)', position: 'absolute', boxShadow: '0 0 15px rgba(130,170,255,0.6), 0 0 4px white' }} />
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}><M style={{ fontSize: 10, color: 'var(--border-light)' }}>DEPLOY AGENT SWARM</M><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}><M style={{ fontSize: 10, color: 'var(--border-light)' }}>SYSTEMATIC RESEARCH</M><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="1.5"><path d="M5 12h14M12 5l7 7-7 7" /></svg></div>
             </div>
           </div>
-          {!mob && <><div style={{ position:'absolute', top:'20%', right:'15%', display:'flex', alignItems:'center', zIndex:20 }}><div style={{ width:64, height:1, background:'var(--border-light)', transform:'rotate(-30deg)', transformOrigin:'right' }} /><div style={{ display:'flex', alignItems:'center', gap:12 }}><div style={{ width:6, height:6, background:'var(--accent)' }} /><div style={{ display:'flex', flexDirection:'column' }}><M style={{ fontSize:9, letterSpacing:'0.15em', color:'var(--muted)', textTransform:'uppercase' }}>ML Inference Engine</M><M style={{ fontSize:10, letterSpacing:'0.1em', color:'var(--fg)', textTransform:'uppercase' }}>{'Latency < 0.04ms'}</M></div></div></div>
+          {!mob && <><div style={{ position:'absolute', top:'20%', right:'15%', display:'flex', alignItems:'center', zIndex:20 }}><div style={{ width:64, height:1, background:'var(--border-light)', transform:'rotate(-30deg)', transformOrigin:'right' }} /><div style={{ display:'flex', alignItems:'center', gap:12 }}><div style={{ width:6, height:6, background:'var(--accent)' }} /><div style={{ display:'flex', flexDirection:'column' }}><M style={{ fontSize:9, letterSpacing:'0.15em', color:'var(--muted)', textTransform:'uppercase' }}>Research Infrastructure</M><M style={{ fontSize:10, letterSpacing:'0.1em', color:'var(--fg)', textTransform:'uppercase' }}>{'100,000+ Simulations'}</M></div></div></div>
           <div style={{ position:'absolute', bottom:'30%', left:'10%', display:'flex', alignItems:'center', flexDirection:'row-reverse', zIndex:20 }}><div style={{ width:96, height:1, background:'var(--border-light)', transform:'rotate(12deg)', transformOrigin:'left' }} /><div style={{ display:'flex', alignItems:'center', gap:12, flexDirection:'row-reverse' }}><div style={{ width:6, height:6, background:'var(--accent)' }} /><div style={{ display:'flex', flexDirection:'column', textAlign:'right' }}><M style={{ fontSize:9, letterSpacing:'0.15em', color:'var(--muted)', textTransform:'uppercase' }}>Proprietary Data</M><M style={{ fontSize:10, letterSpacing:'0.1em', color:'var(--fg)', textTransform:'uppercase' }}>Pipeline Active</M></div></div></div></>}
         </div>
-        <div style={{ borderTop:'1px solid var(--border)', background:'var(--panel)', display:'grid', gridTemplateColumns: mob ? '1fr' : '1fr 1fr 1fr', position:'relative', zIndex:20, flexShrink:0 }}>{stats.map((s,i)=><div key={s.n} style={{ borderRight: !mob && i<2?'1px solid var(--border)':'none', borderBottom: mob && i<2?'1px solid var(--border)':'none', padding: mob ? '16px 24px' : 24, display:'flex', flexDirection: mob ? 'row' : 'column', justifyContent:'space-between', alignItems: mob ? 'center' : 'flex-start', gap: mob ? 8 : 0 }}><div style={{ display:'flex', alignItems:'center', gap:8 }}><M style={{ fontSize:10, color:'var(--border-light)' }}>{s.n}</M><M style={{ fontSize:10, letterSpacing:'0.1em', color:'var(--muted)', textTransform:'uppercase' }}>{s.l}</M></div><div style={{ fontSize: mob ? '1.5rem' : '2.25rem', fontWeight:300, color:'var(--fg)', letterSpacing:'-0.02em', fontFamily:"'Inter', sans-serif" }}>{s.v}{s.u&&<span style={{ fontSize: mob ? '0.9rem' : '1.25rem', color:'var(--muted)' }}>{s.u}</span>}</div></div>)}</div>
+        <div style={{ borderTop:'1px solid var(--border)', background:'var(--panel)', display:'grid', gridTemplateColumns: mob ? '1fr' : '1fr 1fr 1fr', position:'relative', zIndex:20, flexShrink:0 }}>
+          {[{n:'01',l:'Data Sources',v:'10,000',u:'+'},{n:'02',l:'Simulations Daily',v:'48,000',u:''},{n:'03',l:'System Uptime',v:'99.99',u:'%'}].map((s,i)=><div key={s.n} style={{ borderRight: !mob&&i<2?'1px solid var(--border)':'none', borderBottom: mob&&i<2?'1px solid var(--border)':'none', padding: mob ? '16px 24px' : 24, display:'flex', flexDirection: mob ? 'row' : 'column', justifyContent:'space-between', alignItems: mob ? 'center' : 'flex-start' }}><div style={{ display:'flex', alignItems:'center', gap:8 }}><M style={{ fontSize:10, color:'var(--border-light)' }}>{s.n}</M><M style={{ fontSize:10, letterSpacing:'0.1em', color:'var(--muted)', textTransform:'uppercase' }}>{s.l}</M></div><div style={{ fontSize: mob ? '1.5rem' : '2.25rem', fontWeight:300, color:'var(--fg)', letterSpacing:'-0.02em', fontFamily:"'Inter', sans-serif" }}>{s.v}{s.u&&<span style={{ fontSize: mob ? '0.9rem' : '1.25rem', color:'var(--muted)' }}>{s.u}</span>}</div></div>)}
+        </div>
       </div>
     </section>
   );
 };
 
-// 02 FIRM
-const firmMetrics=[{label:'Operational Since',value:'2024',raw:null},{label:'Data Sources',value:'124 Live Streams',raw:'124',suffix:' Live Streams'},{label:'Inference Decisions',value:'4.2M / Day',raw:'4.2',suffix:'M / Day'},{label:'System Uptime',value:'99.9997%',raw:'99.9997',suffix:'%'},{label:'Research Papers Integrated',value:'47',raw:'47',suffix:''},{label:'Strategy Generations Evolved',value:'5,847',raw:'5847',suffix:''}];
-const FirmSection = () => { const mob = useContext(MobileCtx); return (
-  <section id="firm" style={{ background:'var(--panel)', borderBottom:'1px solid var(--border)', position:'relative' }}><GridP opacity={0.04} /><div style={{ display:'flex', flexDirection: mob ? 'column' : 'row', position:'relative', zIndex:10 }}><div style={{ flex:1, padding: mob ? '40px 24px' : '80px 64px', borderRight: mob ? 'none' : '1px solid var(--border)', borderBottom: mob ? '1px solid var(--border)' : 'none' }}><div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:24 }}><span style={{ width:16, height:1, background:'var(--border-light)' }} /><M style={{ fontSize:10, letterSpacing:'0.2em', color:'var(--muted)', textTransform:'uppercase' }}>The Firm</M></div><p style={{ color:'var(--fg)', fontSize: mob ? 16 : 18, fontWeight:300, lineHeight:1.7, fontFamily:"'Inter', sans-serif", maxWidth:520, marginBottom:24 }}>Flux is a quantitative intelligence firm operating at the intersection of machine learning, autonomous agent systems, and decentralized infrastructure.</p><p style={{ color:'var(--muted)', fontSize: mob ? 13 : 14, lineHeight:1.8, fontFamily:"'Inter', sans-serif", maxWidth:520, marginBottom:24 }}>We build systems that discover, validate, and execute trading strategies without human intervention — then stress-test them against every market regime in recorded history before they touch live capital.</p><p style={{ color:'var(--muted)', fontSize: mob ? 13 : 14, lineHeight:1.8, fontFamily:"'Inter', sans-serif", maxWidth:520 }}>Founded in 2024. Privately held. Operating globally.</p></div><div style={{ width: mob ? '100%' : 340, padding: mob ? '24px 24px' : '80px 40px', display:'flex', flexDirection:'column', justifyContent:'center' }}>{firmMetrics.map((m,i)=><div key={m.label} style={{ padding:'14px 0', borderBottom:i<5?'1px solid var(--border)':'none', display:'flex', justifyContent:'space-between', alignItems:'center' }}><M style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>{m.label}</M><M style={{ fontSize:12, color:'var(--fg)' }}>{m.raw?<CountUp end={m.raw} suffix={m.suffix} />:m.value}</M></div>)}</div></div></section>
-); };
+// 02 TECHNOLOGY — signal canvas + stack
+const TechSection = () => {
+  const mob = useContext(MobileCtx); const theme = useContext(ThemeCtx); const canvasRef = useRef(null); const mouseRef = useRef({ x: 0.5, y: 0.5 }); const themeRef = useRef(theme.mode);
+  useEffect(() => { themeRef.current = theme.mode; }, [theme.mode]);
+  useEffect(() => { const canvas = canvasRef.current; if (!canvas) return; const ctx = canvas.getContext('2d'); let animId, time = 0;
+    const resize = () => { const r = canvas.parentElement.getBoundingClientRect(); canvas.width = r.width * 2; canvas.height = r.height * 2; ctx.scale(2, 2); }; resize(); window.addEventListener('resize', resize);
+    const hm = (e) => { const r = canvas.getBoundingClientRect(); mouseRef.current = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }; }; canvas.addEventListener('mousemove', hm);
+    canvas.addEventListener('touchmove', (e) => { const t = e.touches[0]; const r = canvas.getBoundingClientRect(); mouseRef.current = { x: (t.clientX - r.left) / r.width, y: (t.clientY - r.top) / r.height }; }, { passive: true });
+    const draw = () => { const w = canvas.width / 2, h = canvas.height / 2, my = mouseRef.current.y, mx = mouseRef.current.x; time += 0.015; const isLight = themeRef.current === 'light'; ctx.fillStyle = isLight ? 'rgba(244,244,246,0.12)' : 'rgba(8,8,10,0.12)'; ctx.fillRect(0, 0, w, h); const cy = h / 2;
+      ctx.strokeStyle = isLight ? 'rgba(180,180,190,0.3)' : 'rgba(56,58,69,0.3)'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(w, cy); ctx.stroke(); for (let i = 1; i <= 4; i++) { ctx.beginPath(); ctx.moveTo(0, cy + i * 30); ctx.lineTo(w, cy + i * 30); ctx.moveTo(0, cy - i * 30); ctx.lineTo(w, cy - i * 30); ctx.stroke(); }
+      const na = (1 - my) * 0.9 + 0.1; ctx.beginPath(); ctx.strokeStyle = `rgba(150,90,90,${na * 0.35})`; ctx.lineWidth = 1; for (let x = 0; x < w; x++) { const n = Math.sin(x * 0.02 + time * 2) * 20 * na + Math.sin(x * 0.05 + time * 3.7) * 15 * na + (Math.random() - 0.5) * 30 * na; x === 0 ? ctx.moveTo(x, cy + n) : ctx.lineTo(x, cy + n); } ctx.stroke();
+      const ss = my; ctx.beginPath(); ctx.strokeStyle = isLight ? `rgba(30,30,40,${ss * 0.8 + 0.1})` : `rgba(240,240,242,${ss * 0.8 + 0.1})`; ctx.lineWidth = 1.5; ctx.shadowColor = isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.5)'; ctx.shadowBlur = ss * 12; for (let x = 0; x < w; x++) { const ph = x * 0.008 + time * 0.8; const s = Math.sin(ph) * 45 * ss + Math.sin(ph * 2.1 + 0.5) * 20 * ss; x === 0 ? ctx.moveTo(x, cy + s) : ctx.lineTo(x, cy + s); } ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.beginPath(); ctx.strokeStyle = `rgba(130,170,255,${ss * 0.6})`; ctx.lineWidth = 0.8; ctx.shadowColor = 'rgba(100,150,255,0.8)'; ctx.shadowBlur = ss * 20; const freq = 0.003 + mx * 0.012; for (let x = 0; x < w; x++) { const a = Math.sin(x * freq + time * 1.2) * 60 * ss * ss; x === 0 ? ctx.moveTo(x, cy + a) : ctx.lineTo(x, cy + a); } ctx.stroke(); ctx.shadowBlur = 0;
+      animId = requestAnimationFrame(draw); }; animId = requestAnimationFrame(draw);
+    return () => { cancelAnimationFrame(animId); window.removeEventListener('resize', resize); }; }, []);
 
-// 03 SIGNAL
-const SignalSection = () => {
-  const mob = useContext(MobileCtx);
-  const canvasRef=useRef(null); const mouseRef=useRef({x:0.5,y:0.5});
-  useEffect(() => { const canvas=canvasRef.current; if(!canvas)return; const ctx=canvas.getContext('2d'); let animId,time=0;
-    const resize=()=>{const r=canvas.parentElement.getBoundingClientRect();canvas.width=r.width*2;canvas.height=r.height*2;ctx.scale(2,2);}; resize(); window.addEventListener('resize',resize);
-    const hm=(e)=>{const r=canvas.getBoundingClientRect();mouseRef.current={x:(e.clientX-r.left)/r.width,y:(e.clientY-r.top)/r.height};}; canvas.addEventListener('mousemove',hm); canvas.addEventListener('touchmove',(e)=>{const t=e.touches[0];const r=canvas.getBoundingClientRect();mouseRef.current={x:(t.clientX-r.left)/r.width,y:(t.clientY-r.top)/r.height};},{passive:true});
-    const draw=()=>{const w=canvas.width/2,h=canvas.height/2,my=mouseRef.current.y,mx=mouseRef.current.x;time+=0.015;ctx.fillStyle='rgba(8,8,10,0.12)';ctx.fillRect(0,0,w,h);const cy=h/2;ctx.strokeStyle='rgba(56,58,69,0.3)';ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(w,cy);ctx.stroke();for(let i=1;i<=4;i++){ctx.beginPath();ctx.moveTo(0,cy+i*30);ctx.lineTo(w,cy+i*30);ctx.moveTo(0,cy-i*30);ctx.lineTo(w,cy-i*30);ctx.stroke();}const na=(1-my)*0.9+0.1;ctx.beginPath();ctx.strokeStyle=`rgba(150,90,90,${na*0.35})`;ctx.lineWidth=1;for(let x=0;x<w;x++){const n=Math.sin(x*0.02+time*2)*20*na+Math.sin(x*0.05+time*3.7)*15*na+Math.sin(x*0.11+time*5.3)*10*na+(Math.random()-0.5)*30*na;x===0?ctx.moveTo(x,cy+n):ctx.lineTo(x,cy+n);}ctx.stroke();const ss=my;ctx.beginPath();ctx.strokeStyle=`rgba(240,240,242,${ss*0.8+0.1})`;ctx.lineWidth=1.5;ctx.shadowColor='rgba(255,255,255,0.5)';ctx.shadowBlur=ss*12;for(let x=0;x<w;x++){const ph=x*0.008+time*0.8;const s=Math.sin(ph)*45*ss+Math.sin(ph*2.1+0.5)*20*ss+Math.sin(ph*0.5-0.3)*15*ss;x===0?ctx.moveTo(x,cy+s):ctx.lineTo(x,cy+s);}ctx.stroke();ctx.shadowBlur=0;ctx.beginPath();ctx.strokeStyle=`rgba(130,170,255,${ss*0.6})`;ctx.lineWidth=0.8;ctx.shadowColor='rgba(100,150,255,0.8)';ctx.shadowBlur=ss*20;const freq=0.003+mx*0.012;for(let x=0;x<w;x++){const a=Math.sin(x*freq+time*1.2)*60*ss*ss;x===0?ctx.moveTo(x,cy+a):ctx.lineTo(x,cy+a);}ctx.stroke();ctx.shadowBlur=0;animId=requestAnimationFrame(draw);};
-    animId=requestAnimationFrame(draw); return ()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize);}; }, []);
+  const stack = [
+    { layer: 'L1', name: 'DATA SOURCING', desc: 'Structured and alternative data from thousands of sources, organized and enriched', metric: '10,000+ sources' },
+    { layer: 'L2', name: 'MODELING', desc: 'Quantitative techniques from ridge regressions to deep learning to capture persistent signals', metric: '< 0.04ms' },
+    { layer: 'L3', name: 'PORTFOLIO CONSTRUCTION', desc: 'Systematic strategy selection with rigorous out-of-sample validation', metric: '48,000 sims/day' },
+    { layer: 'L4', name: 'RISK MANAGEMENT', desc: 'Multi-layered controls, correlation monitoring, drawdown containment', metric: '5 layers' },
+    { layer: 'L5', name: 'EXECUTION', desc: 'Efficient multi-venue trade implementation and position management', metric: '24/7' },
+  ];
+
   return (
-    <section id="signal" style={{ minHeight: mob ? 'auto' : '100vh', display:'flex', flexDirection: mob ? 'column' : 'row', borderBottom:'1px solid var(--border)', position:'relative' }}>
-      <div style={{ width: mob ? '100%' : '35%', minWidth: mob ? 'auto' : 380, borderRight: mob ? 'none' : '1px solid var(--border)', borderBottom: mob ? '1px solid var(--border)' : 'none', background:'var(--panel)', display:'flex', flexDirection:'column', position:'relative', zIndex:20 }}><GridP opacity={0.08} /><div style={{ padding: mob ? '32px 24px' : 48, flex:1, display:'flex', flexDirection:'column', justifyContent:'center', position:'relative' }}><div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:16 }}><span style={{ width:16, height:1, background:'var(--border-light)' }} /><M style={{ fontSize:10, letterSpacing:'0.2em', color:'var(--muted)', textTransform:'uppercase' }}>Thesis 002</M></div><h1 style={{ fontSize: mob ? '2rem' : '3rem', fontWeight:300, lineHeight:1.1, letterSpacing:'-0.02em', color:'var(--fg)', fontFamily:"'Inter', sans-serif", marginBottom: mob ? 24 : 48 }}>Every market<br/>buries a signal.<br/><span style={{ color:'var(--muted)' }}>Our machines<br/>dig it out.</span></h1><p style={{ color:'var(--muted)', fontSize: mob ? 13 : 14, maxWidth:280, lineHeight:1.7, borderLeft:'1px solid var(--border-light)', paddingLeft:16, marginBottom: mob ? 24 : 40 }}>Proprietary ML pipelines ingest alternative data at scale — order book microstructure, cross-exchange divergence, on-chain flow.</p><div style={{ display:'flex', gap:24 }}>{[{l:'Signal-to-Noise',v:'14.2',u:':1'},{l:'Alpha Half-Life',v:'4.7',u:'min'}].map(s=><div key={s.l} style={{ padding:'12px 0', borderTop:'1px solid var(--border)' }}><M style={{ fontSize:9, color:'var(--muted)', textTransform:'uppercase', display:'block', marginBottom:4 }}>{s.l}</M><M style={{ fontSize:18, color:'var(--fg)', fontWeight:400 }}>{s.v}<span style={{ fontSize:11, color:'var(--muted)' }}>{s.u}</span></M></div>)}</div></div><div style={{ padding:'12px 24px', borderTop:'1px solid var(--border)', background:'var(--panel-light)', display:'flex', justifyContent:'space-between', alignItems:'center' }}><M style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.05em' }}>FLUX SIGNAL</M><M style={{ fontSize:10, color:'var(--border-light)', textTransform:'uppercase' }}>{mob ? 'TOUCH TO INTERACT' : 'MOVE CURSOR TO INTERACT'}</M></div></div>
-      <div style={{ flex:1, background:'var(--bg)', position:'relative', overflow:'hidden', minHeight: mob ? 300 : 'auto' }}><DotP opacity={0.05} /><ScanL /><canvas ref={canvasRef} style={{ width:'100%', height:'100%', display:'block', cursor:'crosshair', minHeight: mob ? 300 : 'auto' }} /></div>
-    </section>);
-};
-
-// 04 STRATEGIES
-const strats=[{id:'S1',name:'FUNDING HARVEST',desc:'Perpetual futures funding rate capture across venues',metric:'124 venues',x:200,y:120,c:['S2','S4','S6']},{id:'S2',name:'VOL SURFACE',desc:'Implied vs realized volatility arbitrage',metric:'3.2ms cycle',x:500,y:80,c:['S1','S3']},{id:'S3',name:'STAT ARB',desc:'Cross-asset mean reversion on co-integrated pairs',metric:'847 pairs',x:780,y:150,c:['S2','S5']},{id:'S4',name:'MOMENTUM CASCADE',desc:'Multi-timeframe trend detection with regime filters',metric:'6 timeframes',x:150,y:340,c:['S1','S5','S6']},{id:'S5',name:'MEAN REVERSION',desc:'Microstructure-informed contrarian positioning',metric:'0.04ms edge',x:550,y:380,c:['S3','S4']},{id:'S6',name:'CROSS-EX BASIS',desc:'Basis trade capture across fragmented DEX/CEX liquidity',metric:'19 exchanges',x:830,y:320,c:['S1','S4']}];
-const getS=(id)=>strats.find(s=>s.id===id);
-const StrategySection=()=>{const mob=useContext(MobileCtx);const[hov,setHov]=useState(null);
-  if (mob) return (
-    <section id="strategies" style={{ background:'var(--bg)', borderBottom:'1px solid var(--border)', position:'relative' }}><DotP opacity={0.04} />
-      <div style={{ padding:'32px 24px', borderBottom:'1px solid var(--border)', position:'relative', zIndex:10 }}><M style={{ fontSize:10, letterSpacing:'0.2em', color:'var(--muted)', textTransform:'uppercase', marginBottom:12, display:'block' }}>SECTION // MULTI-STRATEGY</M><STitle>Diversified Alpha</STitle></div>
-      <div style={{ padding:'16px 24px', position:'relative', zIndex:10 }}>{strats.map((s,i)=><div key={s.id} style={{ padding:'16px 0', borderBottom:i<5?'1px solid var(--border)':'none', display:'flex', justifyContent:'space-between', alignItems:'center' }}><div><M style={{ fontSize:11, color:'var(--fg)', display:'block', marginBottom:4 }}>{s.name}</M><span style={{ fontSize:12, color:'var(--muted)', fontFamily:"'Inter', sans-serif" }}>{s.desc}</span></div><M style={{ fontSize:10, color:'var(--border-light)', whiteSpace:'nowrap', marginLeft:16 }}>{s.metric}</M></div>)}</div>
-      <FBar metrics={[{label:'Rebalance',value:'10',unit:'min'},{label:'Data/Cycle',value:'2.8',unit:'M'}]} copyright="© FLUX" /></section>);
-  return (
-    <section id="strategies" style={{ minHeight:'100vh', background:'var(--bg)', borderBottom:'1px solid var(--border)', display:'flex', flexDirection:'column', position:'relative' }}><DotP opacity={0.04} /><ScanL /><div style={{ padding:48, borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'flex-end', position:'relative', zIndex:10 }}><div><M style={{ fontSize:10, letterSpacing:'0.2em', color:'var(--muted)', textTransform:'uppercase', marginBottom:16, display:'block' }}>SECTION // MULTI-STRATEGY FRAMEWORK</M><STitle>Diversified Alpha Across<br/>Uncorrelated Return Streams</STitle></div><div style={{ textAlign:'right' }}><M style={{ fontSize:10, color:'var(--border-light)', textTransform:'uppercase', display:'block' }}>ACTIVE_STRATEGIES: 6</M><M style={{ fontSize:10, color:'var(--border-light)', textTransform:'uppercase', display:'block' }}>AVG_CORRELATION: 0.12</M></div></div>
-    <div style={{ flex:1, position:'relative', minHeight:480 }}><svg style={{ position:'absolute', inset:0, width:'100%', height:'100%' }} viewBox="0 0 1000 460">
-      {strats.map(s=>s.c.map(cId=>{const t=getS(cId);if(!t||s.id>cId)return null;const ia=hov===s.id||hov===cId;return <line key={`${s.id}-${cId}`} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={ia?'rgba(255,255,255,0.5)':'rgba(56,58,69,0.4)'} strokeWidth={ia?1:0.5} strokeDasharray={ia?'none':'4 4'} style={{transition:'all 0.4s'}} />;}))}
-      {strats.map(s=>s.c.map(cId=>{const t=getS(cId);if(!t||s.id>cId)return null;return <circle key={`d-${s.id}-${cId}`} r="1.5" fill="white" opacity="0.3" style={{offsetPath:`path('M${s.x},${s.y} L${t.x},${t.y}')`,animation:`moveParticle ${3+Math.random()*2}s linear infinite`,animationDelay:`${Math.random()*3}s`}} />;}))}
-      {strats.map((s,si)=>{const ia=hov===s.id;const ic=hov&&strats.find(st=>st.id===hov)?.c.includes(s.id);const sh=ia||ic||!hov;return(
-        <g key={s.id} transform={`translate(${s.x},${s.y})`} onMouseEnter={()=>setHov(s.id)} onMouseLeave={()=>setHov(null)} style={{cursor:'pointer'}}>
-          {ia&&<circle r="24" fill="none" stroke="rgba(130,170,255,0.5)" strokeWidth="0.5" opacity="0.3" style={{animation:'pulseGlow 2s infinite'}} />}
-          <circle r="16" fill="rgba(17,18,22,0.8)" stroke={ia?'var(--accent)':ic?'rgba(255,255,255,0.3)':'var(--border-light)'} strokeWidth={ia?1.5:0.5} style={{transition:'stroke 0.3s',animation:`nodeBreathe ${3.5+si*0.4}s ease-in-out infinite`}} />
-          <circle r="2.5" fill={sh?'var(--accent)':'var(--border-light)'} style={{transition:'fill 0.3s'}} />
-          <text y="-24" textAnchor="middle" fontFamily="JetBrains Mono" fontSize="8" letterSpacing="0.1em" fill={ia?'var(--fg)':'var(--muted)'} style={{textTransform:'uppercase'}}>{s.name}</text>
-          <text y="32" textAnchor="middle" fontFamily="JetBrains Mono" fontSize="9" fill={ia?'var(--accent)':'var(--border-light)'}>{s.metric}</text>
-          {ia&&<foreignObject x="-120" y="40" width="240" height="60"><div style={{background:'rgba(17,18,22,0.9)',border:'1px solid var(--border-light)',padding:'10px 14px',backdropFilter:'blur(8px)'}}><span style={{fontFamily:"'Inter', sans-serif",fontSize:11,color:'var(--muted)',lineHeight:1.5}}>{s.desc}</span></div></foreignObject>}
-        </g>);})}</svg></div>
-    <FBar metrics={[{label:'Rebalance Frequency',value:'10',unit:'min'},{label:'Data Points / Cycle',value:'2.8',unit:'M'},{label:'Venues Connected',value:'124'}]} copyright="© FLUX // MULTI_STRATEGY_V3.0" /></section>);};
-
-// 05 RISK
-const riskLayers=[{name:'POSITION LIMITS',r:0.18,desc:'Hard caps on single-asset and portfolio exposure'},{name:'VOLATILITY REGIME',r:0.34,desc:'Auto-reduces size and widens stops in high-vol regimes'},{name:'CIRCUIT BREAKERS',r:0.50,desc:'Graduated alert system halts new entries'},{name:'CORRELATION MONITOR',r:0.66,desc:'Detects crowding when strategy correlations spike'},{name:'DRAWDOWN CONTAINMENT',r:0.82,desc:'Kelly-criterion scaling prevents catastrophic loss'}];
-const RiskSection=({scrollSpeed})=>{const mob=useContext(MobileCtx);const canvasRef=useRef(null);const[hovL,setHovL]=useState(null);const speedRef=useRef(0.008);
-  useEffect(()=>{speedRef.current=0.008+Math.abs(scrollSpeed||0)*0.0003;},[scrollSpeed]);
-  useEffect(()=>{const canvas=canvasRef.current;if(!canvas)return;const ctx=canvas.getContext('2d');let animId,angle=0;const resize=()=>{const r=canvas.parentElement.getBoundingClientRect();const sz=Math.min(r.width,r.height);canvas.width=sz*2;canvas.height=sz*2;canvas.style.width=sz+'px';canvas.style.height=sz+'px';ctx.scale(2,2);};resize();window.addEventListener('resize',resize);const blips=[{a:0.8,ri:0.34},{a:2.1,ri:0.50},{a:3.8,ri:0.66},{a:5.2,ri:0.18},{a:1.4,ri:0.82},{a:4.5,ri:0.50}];
-    const draw=()=>{const s=canvas.width/4,cx=s,cy=s;ctx.clearRect(0,0,s*2,s*2);riskLayers.forEach((l,i)=>{const r=l.r*s*0.9;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=hovL===i?'rgba(255,255,255,0.4)':'rgba(56,58,69,0.4)';ctx.lineWidth=hovL===i?1.5:0.5;ctx.stroke();});ctx.strokeStyle='rgba(56,58,69,0.2)';ctx.lineWidth=0.5;ctx.beginPath();ctx.moveTo(cx,cy-s*0.8);ctx.lineTo(cx,cy+s*0.8);ctx.moveTo(cx-s*0.8,cy);ctx.lineTo(cx+s*0.8,cy);ctx.stroke();angle+=speedRef.current;const sl=s*0.82;const sx=cx+Math.cos(angle)*sl,sy=cy+Math.sin(angle)*sl;const gr=ctx.createLinearGradient(cx,cy,sx,sy);gr.addColorStop(0,'rgba(255,255,255,0)');gr.addColorStop(0.7,'rgba(100,150,255,0.06)');gr.addColorStop(1,'rgba(130,170,255,0.35)');ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(sx,sy);ctx.strokeStyle=gr;ctx.lineWidth=2;ctx.stroke();const tg=ctx.createConicGradient(angle-0.5,cx,cy);tg.addColorStop(0,'rgba(160,50,50,0)');tg.addColorStop(0.06,'rgba(160,50,50,0.025)');tg.addColorStop(0.12,'rgba(100,150,255,0.015)');tg.addColorStop(0.18,'rgba(255,255,255,0)');ctx.beginPath();ctx.arc(cx,cy,sl,0,Math.PI*2);ctx.fillStyle=tg;ctx.fill();blips.forEach(b=>{const dt=Math.abs(((angle%(Math.PI*2))-b.a+Math.PI*2)%(Math.PI*2));const br=dt<0.8?(1-dt/0.8):0;const r=b.ri*s*0.9;const bx=cx+Math.cos(b.a)*r,by=cy+Math.sin(b.a)*r;if(br>0.05){ctx.beginPath();ctx.arc(bx,by,2+br*2,0,Math.PI*2);ctx.fillStyle=`rgba(140,180,255,${br*0.8})`;ctx.fill();ctx.beginPath();ctx.arc(bx,by,4+br*6,0,Math.PI*2);ctx.fillStyle=`rgba(160,50,50,${br*0.1})`;ctx.fill();}});ctx.beginPath();ctx.arc(cx,cy,3,0,Math.PI*2);ctx.fillStyle='white';ctx.fill();animId=requestAnimationFrame(draw);};
-    animId=requestAnimationFrame(draw);return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize);};},[hovL]);
-  return(
-    <section id="risk" style={{ minHeight: mob ? 'auto' : '100vh', background:'var(--panel)', borderBottom:'1px solid var(--border)', display:'flex', flexDirection:'column', position:'relative' }}><GridP opacity={0.06} /><div style={{ padding: mob ? '32px 24px' : 48, borderBottom:'1px solid var(--border)', position:'relative', zIndex:10 }}><M style={{ fontSize:10, letterSpacing:'0.2em', color:'var(--muted)', textTransform:'uppercase', marginBottom:12, display:'block' }}>SECTION // DEFENSE PROTOCOL</M><STitle>Five Layers of<br/>Autonomous Protection</STitle></div>
-      <div style={{ flex:1, display:'flex', flexDirection: mob ? 'column' : 'row', position:'relative', minHeight: mob ? 'auto' : 500 }}>
-        <div style={{ flex:1, display:'flex', alignItems:'center', justifyContent:'center', position:'relative', minHeight: mob ? 280 : 'auto' }}><canvas ref={canvasRef} /></div>
-        <div style={{ width: mob ? '100%' : 340, borderLeft: mob ? 'none' : '1px solid var(--border)', borderTop: mob ? '1px solid var(--border)' : 'none', display:'flex', flexDirection:'column', justifyContent:'center', padding: mob ? '16px 24px' : '24px 32px', position:'relative', zIndex:10 }}>{riskLayers.map((l,i)=><div key={i} onMouseEnter={()=>setHovL(i)} onMouseLeave={()=>setHovL(null)} style={{ padding: mob ? '12px 0' : '16px 0', borderBottom:i<riskLayers.length-1?'1px solid var(--border)':'none', cursor:'default' }}><div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:4 }}><M style={{ fontSize:9, color:'var(--border-light)' }}>{String(i+1).padStart(2,'0')}</M><div style={{ width:6, height:6, borderRadius:'50%', background:hovL===i?'var(--accent)':'var(--border-light)', transition:'background 0.3s', boxShadow:hovL===i?'0 0 8px rgba(120,160,255,0.5)':'none' }} /><M style={{ fontSize:10, color:hovL===i?'var(--fg)':'var(--muted)', textTransform:'uppercase', letterSpacing:'0.08em', transition:'color 0.3s' }}>{l.name}</M></div>{mob && <div style={{ marginLeft:28, fontSize:12, color:'var(--border-light)', fontFamily:"'Inter', sans-serif", lineHeight:1.5 }}>{l.desc}</div>}{!mob && <div style={{ marginLeft:28, fontSize:12, color:'var(--border-light)', fontFamily:"'Inter', sans-serif", lineHeight:1.5, maxHeight:hovL===i?40:0, overflow:'hidden', transition:'max-height 0.4s ease, opacity 0.3s', opacity:hovL===i?1:0 }}>{l.desc}</div>}</div>)}</div>
-      </div>
-      <FBar metrics={[{label:'Max Drawdown',value:'-5.0',unit:'%'},{label:'VaR 99%',value:'1.8',unit:'%'},{label:'Recovery',value:'<48',unit:'hrs'}]} copyright="© FLUX" /></section>);};
-
-// 06 EVOLUTION
-const gens=[{g:'G-001',n:[{id:'a1',y:100,a:true},{id:'a2',y:230,a:true},{id:'a3',y:360,a:false}]},{g:'G-002',n:[{id:'b1',y:80,a:true,p:'a1'},{id:'b2',y:160,a:false,p:'a1'},{id:'b3',y:250,a:true,p:'a2'},{id:'b4',y:340,a:false,p:'a2'}]},{g:'G-003',n:[{id:'c1',y:70,a:true,p:'b1'},{id:'c2',y:140,a:true,p:'b1'},{id:'c3',y:240,a:true,p:'b3'},{id:'c4',y:320,a:false,p:'b3'}]},{g:'G-004',n:[{id:'d1',y:90,a:true,p:'c1'},{id:'d2',y:160,a:true,p:'c2'},{id:'d3',y:230,a:true,p:'c3'},{id:'d4',y:300,a:false,p:'c3'}]},{g:'G-005',n:[{id:'e1',y:120,a:true,p:'d1'},{id:'e2',y:200,a:true,p:'d2'},{id:'e3',y:270,a:true,p:'d3'}]}];
-const gPos=(nid)=>{for(let gi=0;gi<gens.length;gi++){const nd=gens[gi].n.find(n=>n.id===nid);if(nd)return{x:100+gi*180,y:nd.y};}return null;};
-const EvolutionSection=()=>{const[ag,setAg]=useState(4);const mob=useContext(MobileCtx);return(
-  <section id="evolution" style={{ background:'var(--bg)', borderBottom:'1px solid var(--border)', display:'flex', flexDirection:'column', position:'relative' }}><DotP opacity={0.04} /><ScanL />
-    <div style={{ padding: mob ? '32px 24px' : 48, borderBottom:'1px solid var(--border)', position:'relative', zIndex:10 }}><M style={{ fontSize:10, letterSpacing:'0.2em', color:'var(--muted)', textTransform:'uppercase', marginBottom:12, display:'block' }}>SECTION // ADAPTIVE SYSTEMS</M><STitle>Strategies That Evolve,<br/>Agents That Learn</STitle></div>
-    <div style={{ flex:1, display:'flex', flexDirection: mob ? 'column' : 'row', position:'relative', minHeight: mob ? 'auto' : 440 }}>
-      <div style={{ flex:1, position:'relative', minHeight: mob ? 300 : 'auto', overflow: 'auto' }}><svg style={{ width: mob ? 900 : '100%', height: mob ? 350 : '100%', display: 'block' }} viewBox="0 0 1000 420">
-        {gens.map((g,gi)=><g key={g.g}><text x={100+gi*180} y={30} textAnchor="middle" fontFamily="JetBrains Mono" fontSize="8" letterSpacing="0.1em" fill={gi===ag?'var(--fg)':'var(--border-light)'}>{g.g}</text><line x1={100+gi*180} y1={45} x2={100+gi*180} y2={400} stroke="var(--border)" strokeWidth="0.5" strokeDasharray="2 4" /></g>)}
-        {gens.map((g,gi)=>g.n.map(nd=>{if(!nd.p)return null;const f=gPos(nd.p),to={x:100+gi*180,y:nd.y};if(!f)return null;const mx2=(f.x+to.x)/2;return <path key={`l-${nd.id}`} d={`M${f.x},${f.y} C${mx2},${f.y} ${mx2},${to.y} ${to.x},${to.y}`} fill="none" stroke={nd.a?'rgba(255,255,255,0.25)':'rgba(160,50,50,0.15)'} strokeWidth={nd.a?1:0.5} strokeDasharray={nd.a?'none':'3 3'} />;}))}
-        {!mob && gens.map((g,gi)=>g.n.filter(nd=>nd.a&&nd.p).map(nd=>{const f=gPos(nd.p),to={x:100+gi*180,y:nd.y};if(!f)return null;const mx2=(f.x+to.x)/2;return <circle key={`p-${nd.id}`} r="1.5" fill="white" opacity="0.5" style={{offsetPath:`path('M${f.x},${f.y} C${mx2},${f.y} ${mx2},${to.y} ${to.x},${to.y}')`,animation:`moveParticle ${2+Math.random()}s linear infinite`,animationDelay:`${Math.random()*2}s`}} />;}))}
-        {gens.map((g,gi)=>g.n.map(nd=>{const x=100+gi*180,ic=gi===ag;return <g key={nd.id} transform={`translate(${x},${nd.y})`}>{nd.a&&ic&&<circle r="12" fill="none" stroke="white" strokeWidth="0.5" opacity="0.2" style={{animation:`blink 3s infinite`}} />}<circle r={nd.a?4:2.5} fill={nd.a?(ic?'var(--accent)':'rgba(255,255,255,0.5)'):'rgba(160,50,50,0.35)'} style={{filter:nd.a&&ic?'drop-shadow(0 0 6px rgba(120,160,255,0.6))':'none'}} />{!nd.a&&<line x1="-4" y1="-4" x2="4" y2="4" stroke="rgba(160,50,50,0.4)" strokeWidth="0.5" />}</g>;}))}
-      </svg></div>
-      <div style={{ width: mob ? '100%' : 320, borderLeft: mob ? 'none' : '1px solid var(--border)', borderTop: mob ? '1px solid var(--border)' : 'none', padding: mob ? '24px 24px' : 32, display:'flex', flexDirection:'column', justifyContent:'center', position:'relative', zIndex:10 }}>
-        <M style={{ fontSize:10, color:'var(--muted)', textTransform:'uppercase', letterSpacing:'0.15em', marginBottom:16, display:'block' }}>Walk-Forward Protocol</M>
-        <p style={{ color:'var(--muted)', fontSize:13, lineHeight:1.7, fontFamily:"'Inter', sans-serif", marginBottom:24 }}>Each generation spawns mutated offspring. Only strategies that survive out-of-sample stress testing propagate. Dead branches are pruned. The fittest compound.</p>
-        <div style={{ padding:'10px 14px', border:'1px solid var(--border)', display:'inline-flex', alignItems:'center', gap:10, marginBottom:20, alignSelf:'flex-start' }}><div style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', boxShadow:'0 0 6px rgba(120,160,255,0.5)' }} /><M style={{ fontSize:9, color:'var(--fg)', textTransform:'uppercase', letterSpacing:'0.1em' }}>ANTI-OVERFIT: VERIFIED</M></div>
-        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>{gens.map((g,i)=><button key={i} onClick={()=>setAg(i)} style={{ flex: mob ? 'none' : 1, padding: mob ? '8px 12px' : '10px 0', background:i===ag?'rgba(255,255,255,0.08)':'transparent', border:`1px solid ${i===ag?'var(--accent)':'var(--border)'}`, color:i===ag?'var(--fg)':'var(--border-light)', fontFamily:"'JetBrains Mono', monospace", fontSize:9, cursor:'pointer', transition:'all 0.3s', textTransform:'uppercase' }}>{g.g}</button>)}</div>
-      </div>
-    </div>
-    <FBar metrics={[{label:'Generations',value:'5,847'},{label:'Mutation',value:'0.04',unit:'/gen'},{label:'Validation',value:'Walk-Forward'}]} copyright="© FLUX" /></section>);};
-
-// 07 MANIFESTO
-const FrontierSection=()=>{const mob=useContext(MobileCtx);const canvasRef=useRef(null);const[vis,setVis]=useState(false);const secRef=useRef(null);
-  useEffect(()=>{const obs=new IntersectionObserver(([e])=>{if(e.isIntersecting)setVis(true);},{threshold:0.2});if(secRef.current)obs.observe(secRef.current);return()=>obs.disconnect();},[]);
-  useEffect(()=>{const canvas=canvasRef.current;if(!canvas)return;const ctx=canvas.getContext('2d');let animId;const parts=[];const resize=()=>{canvas.width=canvas.parentElement.clientWidth*2;canvas.height=canvas.parentElement.clientHeight*2;ctx.scale(2,2);};resize();for(let i=0;i<(mob?40:80);i++)parts.push({x:Math.random()*canvas.width/2,y:Math.random()*canvas.height/2,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,sz:Math.random()*1.5+0.5,op:Math.random()*0.3+0.1});const draw=()=>{const w=canvas.width/2,h=canvas.height/2;ctx.clearRect(0,0,w,h);parts.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=w;if(p.x>w)p.x=0;if(p.y<0)p.y=h;if(p.y>h)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.sz,0,Math.PI*2);ctx.fillStyle=`rgba(255,255,255,${p.op})`;ctx.fill();});if(!mob)for(let i=0;i<parts.length;i++)for(let j=i+1;j<parts.length;j++){const dx=parts[i].x-parts[j].x,dy=parts[i].y-parts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<80){ctx.beginPath();ctx.moveTo(parts[i].x,parts[i].y);ctx.lineTo(parts[j].x,parts[j].y);ctx.strokeStyle=`rgba(255,255,255,${(1-d/80)*0.06})`;ctx.lineWidth=0.5;ctx.stroke();}}animId=requestAnimationFrame(draw);};animId=requestAnimationFrame(draw);window.addEventListener('resize',resize);return()=>{cancelAnimationFrame(animId);window.removeEventListener('resize',resize);};},[mob]);
-  const lines=[{t:'The future belongs to machines',d:0,big:true},{t:'that think in markets.',d:0.4,m:true},{t:'',d:0},{t:'Not faster humans.',d:1.0},{t:'Not better spreadsheets.',d:1.4},{t:'Autonomous agents',d:2.0,big:true},{t:'that learn, adapt, evolve —',d:2.4,m:true},{t:'and compound.',d:3.0}];
-  return(
-    <section id="frontier" ref={secRef} style={{ minHeight:'100vh', background:'var(--bg)', display:'flex', flexDirection:'column', position:'relative', overflow:'hidden' }}>
-      <canvas ref={canvasRef} style={{ position:'absolute', inset:0, width:'100%', height:'100%', pointerEvents:'none' }} />
-      <div style={{ position:'absolute', inset:0, background:'radial-gradient(ellipse at center, rgba(100,60,140,0.06) 0%, transparent 40%, rgba(8,8,10,0.8) 100%)', pointerEvents:'none' }} />
-      <div style={{ flex:1, display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', position:'relative', zIndex:10, padding: mob ? '48px 24px' : '80px 48px' }}>
-        <M style={{ fontSize:10, letterSpacing:'0.3em', color:'var(--border-light)', textTransform:'uppercase', marginBottom: mob ? 32 : 64 }}>SECTION // MANIFESTO</M>
-        <div style={{ maxWidth:700, textAlign:'center' }}>{lines.map((l,i)=>l.t===''?<div key={i} style={{ height: mob ? 16 : 32 }} />:<div key={i} style={{ minHeight: mob ? (l.big ? '2.2rem' : '1.8rem') : (l.big ? '3.6rem' : '3rem'), display:'flex', alignItems:'center', justifyContent:'center' }}><h2 style={{ fontSize: mob ? (l.big ? '1.5rem' : '1.25rem') : (l.big ? '3rem' : '2.5rem'), fontWeight:300, lineHeight:1.2, letterSpacing:'-0.02em', color:l.m?'var(--muted)':'var(--fg)', fontFamily:"'Inter', sans-serif", marginBottom:4 }}><ScrambleText text={l.t} active={vis} delay={l.d} /></h2></div>)}</div>
-        <div style={{ width:1, height: mob ? 32 : 64, background:'linear-gradient(to bottom, transparent, var(--border-light), transparent)', margin: mob ? '32px 0' : '56px 0', opacity:vis?1:0, transition:'opacity 1s ease 3.5s' }} />
-        <div style={{ opacity:vis?1:0, transform:vis?'translateY(0)':'translateY(20px)', transition:'all 0.8s cubic-bezier(0.16,1,0.3,1) 3.8s', textAlign:'center' }}>
-          <p style={{ color:'var(--muted)', fontSize: mob ? 13 : 14, lineHeight:1.8, maxWidth:480, margin:'0 auto 32px', fontFamily:"'Inter', sans-serif" }}>We build the infrastructure where artificial intelligence meets decentralized markets. Where every signal is earned, every strategy stress-tested, every agent accountable.</p>
-          <div className="corners" style={{ display:'inline-block', padding: mob ? '12px 20px' : '16px 32px', cursor:'pointer', marginBottom: mob ? 32 : 48 }}><div className="corners-inner" /><M style={{ fontSize: mob ? 9 : 11, letterSpacing:'0.2em', color:'var(--accent)', textTransform:'uppercase' }}>FLUX // WHERE INTELLIGENCE COMPOUNDS</M></div>
-          <div style={{ display:'flex', flexDirection: mob ? 'column' : 'row', justifyContent:'center', gap: mob ? 20 : 48, marginTop:8 }}>
-            <div><M style={{ fontSize:9, color:'var(--border-light)', textTransform:'uppercase', display:'block', marginBottom:6 }}>General Inquiries</M><M style={{ fontSize:11, color:'var(--muted)' }}>contact@flux.trading</M></div>
-            <div><M style={{ fontSize:9, color:'var(--border-light)', textTransform:'uppercase', display:'block', marginBottom:6 }}>We're Building</M><M style={{ fontSize:11, color:'var(--muted)' }}>careers@flux.trading</M></div>
+    <section id="tech" style={{ minHeight: mob ? 'auto' : '100vh', display: 'flex', flexDirection: 'column', borderBottom: '1px solid var(--border)', position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: mob ? 'column' : 'row', flex: 1 }}>
+        {/* Left: Interactive signal canvas */}
+        <div style={{ width: mob ? '100%' : '55%', position: 'relative', minHeight: mob ? 300 : 'auto', background: 'var(--bg)' }}>
+          <DotP opacity={0.05} /><ScanL />
+          <div style={{ position: 'absolute', top: 24, left: 24, zIndex: 20 }}><M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--accent)', textTransform: 'uppercase' }}>Signal_Extraction</M></div>
+          <div style={{ position: 'absolute', bottom: 24, left: 24, zIndex: 20 }}><M style={{ fontSize: 9, color: 'var(--border-light)', textTransform: 'uppercase' }}>{mob ? '↑ TOUCH Y = CLARITY' : '↑ CURSOR Y = SIGNAL CLARITY'}</M></div>
+          <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block', cursor: 'crosshair', minHeight: mob ? 300 : 500 }} />
+        </div>
+        {/* Right: Technology stack */}
+        <div style={{ width: mob ? '100%' : '45%', borderLeft: mob ? 'none' : '1px solid var(--border)', borderTop: mob ? '1px solid var(--border)' : 'none', background: 'var(--panel)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          <GridP opacity={0.06} />
+          <div style={{ padding: mob ? '32px 24px' : '48px 40px', position: 'relative', zIndex: 10, borderBottom: '1px solid var(--border)' }}>
+            <M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 16, display: 'block' }}>SECTION // TECHNOLOGY</M>
+            <STitle>Full-Stack Quantitative<br/>Intelligence</STitle>
+          </div>
+          <div style={{ flex: 1, padding: mob ? '0 24px' : '0 40px', position: 'relative', zIndex: 10 }}>
+            {stack.map((s, i) => (
+              <div key={s.layer} style={{ padding: mob ? '16px 0' : '20px 0', borderBottom: i < 4 ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <M style={{ fontSize: 9, color: 'var(--border-light)' }}>{s.layer}</M>
+                    <M style={{ fontSize: 11, color: 'var(--fg)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.name}</M>
+                  </div>
+                  <M style={{ fontSize: 10, color: 'rgba(130,170,255,0.6)' }}>{s.metric}</M>
+                </div>
+                <div style={{ marginLeft: 28, fontSize: 12, color: 'var(--muted)', fontFamily: "'Inter', sans-serif", lineHeight: 1.5 }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ padding: mob ? '12px 24px' : '16px 40px', borderTop: '1px solid var(--border)', background: 'var(--panel-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <M style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase' }}>RIGOROUS VALIDATION</M>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 6px rgba(120,160,255,0.5)' }} /><M style={{ fontSize: 10, color: 'var(--border-light)' }}>OUT-OF-SAMPLE TESTED</M></div>
           </div>
         </div>
       </div>
-      <div style={{ padding: mob ? '16px 24px' : '20px 48px', borderTop:'1px solid var(--border)', display:'flex', flexDirection: mob ? 'column' : 'row', justifyContent:'space-between', alignItems: mob ? 'flex-start' : 'center', gap: mob ? 12 : 0, position:'relative', zIndex:10, background:'var(--panel)' }}><div style={{ display:'flex', gap: mob ? 24 : 48, flexWrap:'wrap' }}><MetB label="Founded" value="MMXXIV" /><MetB label="Thesis" value="AI-Native Markets" /><MetB label="Protocol" value="Bittensor τ" /></div><M style={{ fontSize:10, color:'var(--border-light)' }}>© FLUX // END_TRANSMISSION</M></div>
-      <div style={{ padding:'12px 24px', background:'var(--bg)', borderTop:'1px solid var(--border)', position:'relative', zIndex:10 }}><M style={{ fontSize:9, color:'var(--border)', letterSpacing:'0.03em', lineHeight:1.6 }}>Flux Intelligence Ltd. This website does not constitute an offer to sell, a solicitation to buy, or a recommendation for any security, nor does it constitute investment advice. Past performance is not indicative of future results.</M></div>
-    </section>);};
+    </section>
+  );
+};
+
+// 03 CONTACT — structured split layout matching sections 1+2
+const ContactSection = () => {
+  const mob = useContext(MobileCtx);
+  const [vis, setVis] = useState(false); const secRef = useRef(null);
+  useEffect(() => { const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) setVis(true); }, { threshold: 0.2 }); if (secRef.current) obs.observe(secRef.current); return () => obs.disconnect(); }, []);
+
+  return (
+    <section id="contact" ref={secRef} style={{ minHeight: mob ? 'auto' : '100vh', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+      <div style={{ display: 'flex', flexDirection: mob ? 'column' : 'row', flex: 1 }}>
+        {/* Left panel — philosophy */}
+        <div style={{ width: mob ? '100%' : '55%', background: 'var(--panel)', borderRight: mob ? 'none' : '1px solid var(--border)', borderBottom: mob ? '1px solid var(--border)' : 'none', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          <GridP opacity={0.06} /><ScanL />
+          <div style={{ padding: mob ? '32px 24px' : '48px 56px', borderBottom: '1px solid var(--border)', position: 'relative', zIndex: 10 }}>
+            <M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 16, display: 'block' }}>SECTION // PHILOSOPHY</M>
+            <STitle>We believe the best<br/>investment decisions are<br/>driven by data.</STitle>
+          </div>
+          <div style={{ padding: mob ? '32px 24px' : '48px 56px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 10 }}>
+            <p style={{ color: 'var(--muted)', fontSize: mob ? 13 : 15, lineHeight: 1.8, fontFamily: "'Inter', sans-serif", maxWidth: 520, marginBottom: 32 }}>Our scientific approach is grounded in rigorous inquiry, systematic process, and disciplined risk management. We develop and deploy quantitative strategies on leading-edge systems, applying advanced statistical modeling to identify and act on investment opportunities across global markets.</p>
+            <p style={{ color: 'var(--muted)', fontSize: mob ? 13 : 15, lineHeight: 1.8, fontFamily: "'Inter', sans-serif", maxWidth: 520, marginBottom: 40 }}>We seek the highest and best use of capital through continuous research, robust validation, and efficient execution — operating with the conviction that markets reward those who treat every assumption as a hypothesis to be tested.</p>
+            <div style={{ display: 'flex', gap: mob ? 24 : 40, flexWrap: 'wrap' }}>
+              {[{ l: 'Validation', v: 'Out-of-Sample' }, { l: 'Process', v: 'Systematic' }, { l: 'Risk Framework', v: 'Multi-Layer' }].map(s => <div key={s.l} style={{ padding: '12px 0', borderTop: '1px solid var(--border)' }}><M style={{ fontSize: 9, color: 'var(--muted)', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>{s.l}</M><M style={{ fontSize: 12, color: 'var(--fg)' }}>{s.v}</M></div>)}
+            </div>
+          </div>
+        </div>
+        {/* Right panel — contact + institutional */}
+        <div style={{ width: mob ? '100%' : '45%', background: 'var(--bg)', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+          <DotP opacity={0.06} />
+          {/* Contact block */}
+          <div style={{ padding: mob ? '32px 24px' : '48px 40px', borderBottom: '1px solid var(--border)', position: 'relative', zIndex: 10 }}>
+            <M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 24, display: 'block' }}>Contact</M>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <div style={{ padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+                <M style={{ fontSize: 9, color: 'var(--border-light)', textTransform: 'uppercase', display: 'block', marginBottom: 8, letterSpacing: '0.1em' }}>General Inquiries</M>
+                <M style={{ fontSize: 13, color: 'var(--fg)' }}>contact@sataikko.com</M>
+              </div>
+              <div style={{ padding: '16px 0', borderBottom: '1px solid var(--border)' }}>
+                <M style={{ fontSize: 9, color: 'var(--border-light)', textTransform: 'uppercase', display: 'block', marginBottom: 8, letterSpacing: '0.1em' }}>Careers</M>
+                <M style={{ fontSize: 13, color: 'var(--fg)' }}>careers@sataikko.com</M>
+              </div>
+              <div style={{ padding: '16px 0' }}>
+                <M style={{ fontSize: 9, color: 'var(--border-light)', textTransform: 'uppercase', display: 'block', marginBottom: 8, letterSpacing: '0.1em' }}>Investor Relations</M>
+                <M style={{ fontSize: 13, color: 'var(--fg)' }}>ir@sataikko.com</M>
+              </div>
+            </div>
+          </div>
+          {/* Institutional details */}
+          <div style={{ padding: mob ? '32px 24px' : '48px 40px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative', zIndex: 10 }}>
+            <M style={{ fontSize: 10, letterSpacing: '0.2em', color: 'var(--muted)', textTransform: 'uppercase', marginBottom: 24, display: 'block' }}>Firm Overview</M>
+            {[
+              { label: 'Founded', value: '2024' },
+              { label: 'Headquarters', value: 'Helsinki' },
+              { label: 'Approach', value: 'Systematic Quantitative' },
+              { label: 'Markets', value: 'Global Multi-Asset' },
+              { label: 'Research Infrastructure', value: '100,000+ Simulations / Day' },
+              { label: 'Status', value: 'Privately Held' },
+            ].map((m, i) => (
+              <div key={m.label} style={{ padding: '12px 0', borderBottom: i < 5 ? '1px solid var(--border)' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <M style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.label}</M>
+                <M style={{ fontSize: 11, color: 'var(--fg)' }}>{m.value}</M>
+              </div>
+            ))}
+          </div>
+          {/* System status */}
+          <div style={{ padding: mob ? '12px 24px' : '16px 40px', borderTop: '1px solid var(--border)', background: 'var(--panel-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 10 }}>
+            <M style={{ fontSize: 10, color: 'var(--muted)', textTransform: 'uppercase' }}>ALL SYSTEMS OPERATIONAL</M>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--accent)', boxShadow: '0 0 6px rgba(120,160,255,0.5)', animation: 'blink 2s infinite' }} /><UTCClock /></div>
+          </div>
+        </div>
+      </div>
+      {/* Footer bar */}
+      <div style={{ padding: mob ? '16px 24px' : '20px 48px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: mob ? 'column' : 'row', justifyContent: 'space-between', alignItems: mob ? 'flex-start' : 'center', gap: mob ? 12 : 0, background: 'var(--panel)' }}>
+        <div style={{ display: 'flex', gap: mob ? 24 : 48, flexWrap: 'wrap' }}><MetB label="Founded" value="MMXXIV" /><MetB label="Approach" value="Systematic" /><MetB label="Focus" value="Global Markets" /></div>
+        <M style={{ fontSize: 10, color: 'var(--border-light)' }}>© SATAIKKO</M>
+      </div>
+      <div style={{ padding: '12px 24px', background: 'var(--bg)', borderTop: '1px solid var(--border)' }}>
+        <M style={{ fontSize: 9, color: 'var(--border)', letterSpacing: '0.03em', lineHeight: 1.6 }}>Sataikko Ltd. This website does not constitute an offer to sell, a solicitation to buy, or a recommendation for any security, nor does it constitute investment advice. Past performance is not indicative of future results.</M>
+      </div>
+    </section>
+  );
+};
 
 // APP
-export default function FluxFinal() {
+export default function Sataikko() {
   const isMobile = useIsMobile();
-  const [booted, setBooted] = useState(false); const [active, setActive] = useState('hero'); const [mouse, setMouse] = useState({ mx: 0, my: 0 }); const [glitch, setGlitch] = useState(false); const [scrollSpeed, setScrollSpeed] = useState(0);
-  const scrollRef = useRef(null); const lastSection = useRef('hero'); const lastScrollY = useRef(0);
-  useEffect(() => { if (isMobile) return; const h = (e) => setMouse({ mx: (e.clientX / window.innerWidth - 0.5) * 2, my: (e.clientY / window.innerHeight - 0.5) * 2 }); window.addEventListener('mousemove', h); return () => window.removeEventListener('mousemove', h); }, [isMobile]);
-  useEffect(() => { const c = scrollRef.current; if (!c) return; const h = () => { const dy = Math.abs(c.scrollTop - lastScrollY.current); lastScrollY.current = c.scrollTop; setScrollSpeed(dy); for (const id of ['hero','firm','signal','strategies','risk','evolution','frontier']) { const el = document.getElementById(id); if (el) { const r = el.getBoundingClientRect(); if (r.top <= 200 && r.bottom > 200) { if (id !== lastSection.current) { lastSection.current = id; if (!isMobile) { setGlitch(true); setTimeout(() => setGlitch(false), 120); } } setActive(id); break; } } } }; c.addEventListener('scroll', h); return () => c.removeEventListener('scroll', h); }, [isMobile]);
+  const [booted, setBooted] = useState(false); const [active, setActive] = useState('hero'); const [glitch, setGlitch] = useState(false);
+  const [themeMode, setThemeMode] = useState('dark');
+  const themeValue = { mode: themeMode, toggle: () => setThemeMode(t => t === 'dark' ? 'light' : 'dark') };
+  const scrollRef = useRef(null); const lastSection = useRef('hero');
+  useEffect(() => { document.documentElement.setAttribute('data-theme', themeMode); }, [themeMode]);
+  useEffect(() => { const c = scrollRef.current; if (!c) return; const h = () => { for (const id of ['hero','tech','contact']) { const el = document.getElementById(id); if (el) { const r = el.getBoundingClientRect(); if (r.top <= 200 && r.bottom > 200) { if (id !== lastSection.current) { lastSection.current = id; if (!isMobile) { setGlitch(true); setTimeout(() => setGlitch(false), 120); } } setActive(id); break; } } } }; c.addEventListener('scroll', h); return () => c.removeEventListener('scroll', h); }, [isMobile]);
   const handleBoot = useCallback(() => setBooted(true), []);
   return (
+    <ThemeCtx.Provider value={themeValue}>
     <MobileCtx.Provider value={isMobile}>
-    <MouseCtx.Provider value={mouse}>
-      <div style={{ height: '100vh', width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontSize: 14, fontFamily: "'Inter', sans-serif", background: 'var(--bg)', color: 'var(--fg)' }}>
+      <div data-theme={themeMode} style={{ height: '100vh', width: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', fontSize: 14, fontFamily: "'Inter', sans-serif", background: 'var(--bg)', color: 'var(--fg)', transition: 'background 0.4s, color 0.4s' }}>
         <style>{globalStyles}</style>
         {!booted && <BootScreen onComplete={handleBoot} />}
-        {booted && <><Header active={active} />{!isMobile && <SidebarTicker />}<div ref={scrollRef} className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', scrollBehavior: 'smooth', paddingRight: isMobile ? 0 : 22, animation: glitch ? 'glitch 0.12s linear' : 'none' }}><HeroSection /><FirmSection /><SignalSection /><StrategySection /><RiskSection scrollSpeed={scrollSpeed} /><EvolutionSection /><FrontierSection /></div></>}
+        {booted && <><Header active={active} />{!isMobile && <SidebarTicker />}<div ref={scrollRef} className="custom-scrollbar" style={{ flex: 1, overflowY: 'auto', scrollBehavior: 'smooth', paddingRight: isMobile ? 0 : 22, animation: glitch ? 'glitch 0.12s linear' : 'none' }}><HeroSection /><TechSection /><ContactSection /></div></>}
       </div>
-    </MouseCtx.Provider>
-    </MobileCtx.Provider>);
+    </MobileCtx.Provider>
+    </ThemeCtx.Provider>);
 }
